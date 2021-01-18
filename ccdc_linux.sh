@@ -1,27 +1,36 @@
 #!/usr/bin/bash
+#shopt -s expand_aliases
 
 # initialize options
 auto_secure='false'
-set_aliases='false'
 show_help='false'
 quarantine='false'
 set_passwords='false'
 lock_firewall='false'
 set_interfaces='false'
 
-while getopts ':pdahqfi' option; do
+# initialize argument variables
+new_password='who let the dogs out'
+target_user=''
+
+while getopts ':p:dhq:fi' option; do
   case "$option" in
-    'p') set_passwords='true';;
-    'd') auto_secure='true';;
-    'a') set_aliases='true';;
-    'h') show_help='true';;
-    'q') quarantine='true';;
-    'f') lock_firewall='true';;
-    'i') set_interfaces='true';;
+	'p')
+	    set_passwords='true'
+	    new_password=${OPTARG}
+	    ;;
+    	'd') auto_secure='true';;
+    	'h') show_help='true';;
+    	'q')
+	    quarantine='true'
+	    target_user=${OPTARG}
+	    ;;
+    	'f') lock_firewall='true';;
+    	'i') set_interfaces='true';;
   esac
 done
 
-if [ "$auto_secure" = false ] && [ "$set_aliases" = false ] && [ "$quarantine" = false ] && [ "$set_passwords" = false ] && [ "$lock_firewall" = false ] && [ "$set_interfaces" = false ]; then
+if [ "$auto_secure" = false ] && [ "$quarantine" = false ] && [ "$set_passwords" = false ] && [ "$lock_firewall" = false ] && [ "$set_interfaces" = false ]; then
 	show_help='true'
 fi
 
@@ -32,7 +41,6 @@ if [ "$show_help" = true ]; then
     echo ''
     echo '    -p set_passwords    -- sets every user'\'s' password: "sudo ccdc-linux.sh -p newP@ssw0rd"'
     echo '    -d auto_secure      -- default initial securing of the system'
-    echo '    -a set_aliases      -- sets and displays alias for useful bash one-liners'
     echo '    -h show_help        -- this'
     echo '    -q quarantine       -- moves all files owned by a user into their home directory and then zips it: "sudo ccdc-linux.sh -q user"'
     echo '    -f lock_firewall    -- completely locks down the firewall, all services will be affected'
@@ -66,36 +74,10 @@ then
 	exit
 fi
 
-# Defining and exporting aliases for useful one-liner commands
-if [ "$set_aliases" = true ]; then
-	
-	BLUE 'Aliases set...'
-	echo
-
-	GREEN 'Searches the entire filesystem for '\''searchWord'\'' sends errors to /dev/null:'
-	GREEN 'Usage: "$f searchTerm"'
-	echo 'alias f=find / 2>/dev/null | grep'
-	alias f='find / 2>/dev/null | grep'
-	echo
-	
-	GREEN 'Removes all files matching a given target name, wildcards are in play, case sensitive'
-	GREEN 'Usage: "$nuke target*"'
-	sudo find / -name "*target*" -exec rm -rf {} \;
-
-	# Find every file or folder owned by 'USER_NAME' and move them into a single archive
-	# Some versions of xargs will need '-i%' as the syntax for the xargs varible
-	echo USER_NAME | xargs -I % sh -c 'find / -type f -user % -exec mv {} /home/% \; && zip -r /home/%.zip /home/% && rm -r /home/%'
-
-	# Find and kill every process owned by 'USER_NAME'
-	pkill -9 -u `id -u USER_NAME`
-
-	# Set all interfaces up or down
-	ip a | grep mtu | cut -d":" -f2 | xargs -I % ip link set % u
-fi
-
 # set passwords for all users on the system
 if [ "$set_passwords" = true ]; then
-	BLUE 'Test trigger $set_passwords'
+	BLUE "Setting all user passwords to $new_password..."
+	cat /etc/passwd | cut -d":" -f1 | xargs -I % echo %:$new_password | sudo chpasswd
 fi
 
 # auto_secure performs all default actions to lock down the box 
@@ -105,7 +87,8 @@ fi
 
 # Move all files owned by a user to their home directory and zip it
 if [ "$quarantine" = true ]; then
-	BLUE 'Test trigger $quarantine'
+	BLUE "Quarantining $target_user..."
+	echo $target_user | xargs -I % sh -c 'find / -type f -user % -exec mv {} /home/% \; && zip -r /home/%.zip /home/% && rm -r /home/%'
 fi
 
 # Completely lock down the firewall, this will interrupt all services
