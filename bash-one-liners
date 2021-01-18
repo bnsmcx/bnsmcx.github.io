@@ -1,0 +1,22 @@
+# Searches the entire filesystem for 'searchWord' sends errors to /dev/null:
+find / 2>/dev/null | grep searchWord
+
+# Sets the passord for all users to 'newPassword'
+# Omit sudo if running as root
+# chpasswd may not be in all user's PATH, check /usr/sbin 
+cat /etc/passwd | cut -d":" -f1 | xargs -I % echo %:newPassword | sudo chpasswd
+
+# Finds and deletes all files named "*target*"
+# Wildcards are in play, omit for a more targeted approach
+sudo find / -name "*target*" -exec rm -rf {} \;
+
+# Find every file or folder owned by 'USER_NAME' and move them into a single archive
+# Some versions of xargs will need '-i%' as the syntax for the xargs varible
+echo USER_NAME | xargs -I % sh -c 'find / -type f -user % -exec mv {} /home/% \; && zip -r /home/%.zip /home/% && rm -r /home/%'
+
+# Find and kill every process owned by 'USER_NAME'
+pkill -9 -u `id -u USER_NAME` 
+
+# Set all interfaces up or down
+ip a | grep mtu | cut -d":" -f2 | xargs -I % ip link set % up
+new line of text this is a test for the checksum
