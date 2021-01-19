@@ -8,12 +8,15 @@ quarantine='false'
 set_passwords='false'
 lock_firewall='false'
 set_interfaces='false'
+new_user='false'
 
 # initialize argument variables
 new_password='who let the dogs out'
 target_user=''
+new_interface_setting='down'
+user=''
 
-while getopts ':p:dhq:fi' option; do
+while getopts ':p:dhq:fi:u:' option; do
   case "$option" in
 	'p')
 	    set_passwords='true'
@@ -26,11 +29,19 @@ while getopts ':p:dhq:fi' option; do
 	    target_user=${OPTARG}
 	    ;;
     	'f') lock_firewall='true';;
-    	'i') set_interfaces='true';;
+    	'i') 
+	    set_interfaces='true'
+	    new_interface_setting=${OPTARG}
+	    ;;
+	'u')
+	    new_user='true'
+	    input=($OPTARG)
+	    user=${input[0]}
+	    new_password=${input[1]}
   esac
 done
 
-if [ "$auto_secure" = false ] && [ "$quarantine" = false ] && [ "$set_passwords" = false ] && [ "$lock_firewall" = false ] && [ "$set_interfaces" = false ]; then
+if [ "$new_user" = false ] && [ "$auto_secure" = false ] && [ "$quarantine" = false ] && [ "$set_passwords" = false ] && [ "$lock_firewall" = false ] && [ "$set_interfaces" = false ]; then
 	show_help='true'
 fi
 
@@ -44,7 +55,8 @@ if [ "$show_help" = true ]; then
     echo '    -h show_help        -- this'
     echo '    -q quarantine       -- moves all files owned by a user into their home directory and then zips it: "sudo ccdc-linux.sh -q user"'
     echo '    -f lock_firewall    -- completely locks down the firewall, all services will be affected'
-    echo '    -i set_interfaces   -- quickly sets all interfaces up/down: "sudo ccdc-linux.sh -i down" -or- "sudo ccdc -i down"'
+    echo '    -i set_interfaces   -- quickly sets all interfaces up/down: sudo ./ccdc_linux.sh -i down <-or-> sudo ccdc -i down'
+    echo '    -u new_user         -- adds a new user with provided password, note quotes: sudo ./ccdc_linux.sh -u "user password" '
 fi
 
 # Define colors...
@@ -76,27 +88,64 @@ fi
 
 # set passwords for all users on the system
 if [ "$set_passwords" = true ]; then
-	BLUE "Setting all user passwords to $new_password..."
-	cat /etc/passwd | cut -d":" -f1 | xargs -I % echo %:$new_password | sudo chpasswd
+
+	BLUE "Setting all user passwords to '$new_password'..."
+	for user in $(cat /etc/passwd | cut -d":" -f1)
+	do
+		echo $user:$new_password | sudo chpasswd
+	done
 fi
 
 # auto_secure performs all default actions to lock down the box 
 if [ "$auto_secure" = true ]; then
-	BLUE 'Test trigger $auto_secure'
+
+	BLUE "Securing the system..."
 fi
 
 # Move all files owned by a user to their home directory and zip it
 if [ "$quarantine" = true ]; then
-	BLUE "Quarantining $target_user..."
-	echo $target_user | xargs -I % sh -c 'find / -type f -user % -exec mv {} /home/% \; && zip -r /home/%.zip /home/% && rm -r /home/%'
+
+	BLUE "Killing all of $target_user's processes..."
+	pkill -9 -u `id -u $target_user`
+
+	BLUE "Quarantining $target_user's files in /home/$target_user.tgz..." && echo
+	echo 'making a folder to put the loot in...'
+	mkdir /home/$target_user
+	chown root:root /home/$target_user
+	echo 'searching the filesystem for files owned by the user and moving them to the loot folder...'
+	find / 2>/dev/null -type f -user $target_user -exec mv '{}' /home/$target_user \;
+	find / 2>/dev/null -type d -user $target_user -delete
+	echo 'archiving the loot folder...'
+        tar -czvf /home/$target_user.tgz /home/$target_user
+	echo 'removing the unarchived loot folder...'
+        rm -r /home/$target_user
+
 fi
 
 # Completely lock down the firewall, this will interrupt all services
 if [ "$lock_firewall" = true ]; then
-	BLUE 'Test trigger $lock_firewall'
+
+	BLUE "Firewall locked down, all network traffic will be stopped..."
+	iptable -F
+	iptables -P INPUT DROP
+	iptables -P OUTPUT DROP
+	iptables -P FORWARD DROP
 fi
 
 # Set all interfaces either up or down
 if [ "$set_interfaces" = true ]; then
-	BLUE 'Test trigger $set_interfaces'
+
+	BLUE "Setting all interfaces '$new_interface_setting'"
+	for interface in $(ip a | grep mtu | cut -d":" -f2)
+	do
+		sudo ip link set $interface $new_interface_setting
+	done
+fi
+
+# Create a user with a password
+if [ "$new_user" = true ]; then
+	
+	BLUE "Created user: '$user' with password: '$new_password'..."
+	sudo useradd --groups sudo $user
+	echo $user:$new_password | sudo chpasswd
 fi
