@@ -10,6 +10,8 @@ lock_firewall='false'
 set_interfaces='false'
 new_user='false'
 validate_checksums='false'
+backup_binaries='false'
+reset_binaries='false'
 
 # initialize argument variables
 new_password='who let the dogs out'
@@ -17,7 +19,7 @@ target_user=''
 new_interface_setting='down'
 user=''
 
-while getopts ':p:dhq:fi:u:v' option; do
+while getopts ':p:dhq:fi:u:vbB' option; do
   case "$option" in
 	'p')
 	    set_passwords='true'
@@ -41,10 +43,12 @@ while getopts ':p:dhq:fi:u:v' option; do
 	    new_password=${input[1]}
 	    ;;
 	'v') validate_checksums='true';;
+	'b') backup_binaries='true';;
+	'B') reset_binaries='true';;
   esac
 done
 
-if [ "$validate_checksums" = false ] && [ "$new_user" = false ] && [ "$auto_secure" = false ] && [ "$quarantine" = false ] && [ "$set_passwords" = false ] && [ "$lock_firewall" = false ] && [ "$set_interfaces" = false ]; then
+if [ "$reset_binaries" = false ] && [ "$backup_binaries" = false ] && [ "$validate_checksums" = false ] && [ "$new_user" = false ] && [ "$auto_secure" = false ] && [ "$quarantine" = false ] && [ "$set_passwords" = false ] && [ "$lock_firewall" = false ] && [ "$set_interfaces" = false ]; then
 	show_help='true'
 fi
 
@@ -53,14 +57,28 @@ if [ "$show_help" = true ]; then
     echo ''
     echo 'Options are:'
     echo ''
-    echo '    -p set_passwords       sets every user'\'s' password:  -p newP@ssw0rd'
-    echo '    -d auto_secure         default initial securing of the system'
-    echo '    -h show_help           this'
-    echo '    -q quarantine          kills a user'\'s' processes and archives their files in /home:  -q user'
+    echo '    -p set_passwords       Sets every user'\'s' password:  -p newP@ssw0rd'
+    echo '    -d auto_secure         Default initial securing of the system'
+    echo '    -h show_help           This'
+    echo '    -q quarantine          Kills a user'\'s' processes and archives their files in /home'
     echo '    -f lock_firewall       completely locks down the firewall, all services will be affected'
-    echo '    -i set_interfaces      quickly sets all interfaces up/down:  -i up'
-    echo '    -u new_user            adds a new user with provided password, note quotes:  -u "user password"'
-    echo "    -v validate_checksums  Check to make sure checksums of critical files haven't changed"
+    echo '    -i set_interfaces      quickly sets all interfaces up/down'
+    echo '    -u new_user            adds a new user with provided password'
+    echo '    -v validate_checksums  Check to make sure checksums of critical files haven'\''t changed'
+    echo '    -b backup_binaries     Archives a copy of all binaries in /etc/bin, sets PATH to use these,'
+    echo '                             also creates /tmp/bin.tar.gz and /tmp/bin.enc '\('w/ password you set'\)''
+    echo '                             It probably makes sense to obfuscate and hide copies of these.'
+    echo '    -B reset_binaries      Removes and replaces /tmp/bin and /tmp/tar.gz with fresh copeis from'
+    echo '                             /tmp/bin.enc, if you'\''ve hidden a copy of bin.enc you must move it'
+    echo '                             and rename it to /tmp/bin.enc'
+    echo
+    echo 'Example usages for flags requiring arguments:'
+    echo 
+    echo '		sudo ./ccdc_linux.sh -p "newpassword"       -- Quotes required w/ space in password'
+    echo '		sudo ./ccdc_linux.sh -q username'
+    echo '		sudo ./ccdc_linux.sh -i down'
+    echo '		sudo ./ccdc_linux.sh -u "username password" -- Quotes required'
+    
     
 fi
 
@@ -91,6 +109,41 @@ then
 	exit
 fi
 
+# auto_secure performs all default actions to lock down the box 
+if [ "$auto_secure" = true ]; then
+
+	BLUE "Performing the scripted default actions to secure the system..."
+	
+	# Bring down all network interfaces
+	sudo ./ccdc_linux.sh -i down
+	ip addr
+	GREEN "Network interfaces are now down..."
+
+	# Change all user passwords
+	sudo ./ccdc_linux.sh -p "yoda has green ears"
+	GREEN "All user passwords changed..."
+
+	# Create backup accounts
+	sudo ./ccdc_linux.sh -u "han SpaceSmuggler69"
+	sudo ./ccdc_linus.sh -u "kylo FeistyFellaLOL"
+	sudo tail /etc/passwd
+	GREEN "Created backup users..."
+
+	# Backup Binaries
+	sudo ./ccdc_linux.sh -b
+	GREEN "Created backup of all binaries..."
+
+	# Capture initial checksum of critical files
+	sudo ./ccdc_linux.sh -v
+	GREEN "Initial critical file checksums captured..."
+
+	# Leave the user looking at /etc/passwd
+	sudo cat /etc/passwd
+	GREEN "Auto-Secure actions complete..."
+	GREEN "A good next step would be to identify/remove suspicous or unused users..."
+
+fi
+
 # set passwords for all users on the system
 if [ "$set_passwords" = true ]; then
 
@@ -99,12 +152,6 @@ if [ "$set_passwords" = true ]; then
 	do
 		echo $user:$new_password | sudo chpasswd
 	done
-fi
-
-# auto_secure performs all default actions to lock down the box 
-if [ "$auto_secure" = true ]; then
-
-	BLUE "Securing the system..."
 fi
 
 # Move all files owned by a user to their home directory and zip it
@@ -168,7 +215,7 @@ if [ "$validate_checksums" = true ]; then
 
 	# add critical files or directories to be checked here using absolute paths
 	# wrapped in quotes and separated by a single space
-	declare -a critical_items=("/etc" "/tmp")
+	declare -a critical_items=("/etc" "/tmp/bin" "/bin" "/sbin")
 	for item in "${critical_items[@]}"; 
 	do
 		for file in $(sudo find $item -type f)
@@ -186,4 +233,36 @@ if [ "$validate_checksums" = true ]; then
 		mv current_checksums /root/reference_checksums
 		GREEN "Successfully stashed the reference checksums in /root/reference_checksums" && echo
 	fi
+fi
+
+if [ "$backup_binaries" = true ]; then
+	BLUE "Backing up binaries..." 
+	BLUE "This could take a minute or so..." && echo
+	sudo mkdir /tmp/bin
+	IFS=:
+	for directory in $PATH;
+	do
+		sudo cp -r $directory/* /tmp/bin
+	done
+	
+	tar czf /tmp/bin.tar.gz /tmp/bin
+	openssl enc -e -aes-256-cbc -pbkdf2 -in /tmp/bin.tar.gz -out /tmp/bin.enc 
+	GREEN 'Take a note of the following md5 checksum for bin.enc...'
+	md5sum /tmp/bin.enc
+	export PATH=/tmp/bin
+	GREEN 'Your path is now set to use the backup binaries located at /tmp/bin'
+fi
+
+if [ "$reset_binaries" = true ]; then
+	BLUE "Resetting binaries from backup..." && echo
+	if test ! -f /tmp/bin.enc; then
+		RED 'No backup binaries found...'
+		RED 'This script looks for /tmp/bin.enc'
+		RED 'Put the backup file there.'
+		exit 1
+	fi
+	
+	sudo rm -f /tmp/bin/* /tmp/bin.tar.gz
+	openssl enc -d -aes-256-cbc -pbkdf2 -in /tmp/bin.enc -out /tmp/bin.tar.gz
+	tar xzf /tmp/bin.tar.gz -C /
 fi
