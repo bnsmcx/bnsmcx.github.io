@@ -176,7 +176,7 @@ fi
 if [ "$lock_firewall" = true ]; then
 
 	BLUE "Firewall locked down, all network traffic will be stopped..."
-	iptable -F
+	iptables -F
 	iptables -P INPUT DROP
 	iptables -P OUTPUT DROP
 	iptables -P FORWARD DROP
