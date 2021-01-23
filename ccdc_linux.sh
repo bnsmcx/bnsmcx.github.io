@@ -244,7 +244,7 @@ if [ "$backup_binaries" = true ]; then
 	done
 	
 	tar czf /tmp/bin.tar.gz /tmp/bin
-	openssl enc -e -aes-256-cbc -pbkdf2 -in /tmp/bin.tar.gz -out /tmp/bin.enc 
+	openssl enc -e -aes-256-cbc -in /tmp/bin.tar.gz -out /tmp/bin.enc 
 	GREEN 'Take a note of the following md5 checksum for bin.enc...'
 	md5sum /tmp/bin.enc
 	export PATH=/tmp/bin
@@ -261,6 +261,6 @@ if [ "$reset_binaries" = true ]; then
 	fi
 	
 	sudo rm -f /tmp/bin/* /tmp/bin.tar.gz
-	openssl enc -d -aes-256-cbc -pbkdf2 -in /tmp/bin.enc -out /tmp/bin.tar.gz
+	openssl enc -d -aes-256-cbc -in /tmp/bin.enc -out /tmp/bin.tar.gz
 	tar xzf /tmp/bin.tar.gz -C /
 fi
