@@ -114,29 +114,28 @@ if [ "$auto_secure" = true ]; then
 	BLUE "Performing the scripted default actions to secure the system..."
 	
 	# Bring down all network interfaces
-	sudo bash ccdc_linux.sh -i down
-	ip addr
+	sudo bash ccdc_linux.sh -i down &
 	GREEN "Network interfaces are now down..."
 
 	# Change all user passwords
-	sudo bash ccdc_linux.sh -p "yodagreenears"
+	sudo bash ccdc_linux.sh -p "yodagreenears" &
 	GREEN "All user passwords changed..."
 
 	# Create backup accounts
-	sudo bash ccdc_linux.sh -u "han spacesmuggler69"
-	sudo bash ccdc_linus.sh -u "kylo feistyfella1337"
-	sudo tail /etc/passwd
+	sudo bash ccdc_linux.sh -u "han spacesmuggler69" &
+	sudo bash ccdc_linus.sh -u "kylo feistyfella1337" &
 	GREEN "Created backup users..."
 
 	# Backup Binaries
-	sudo bash ccdc_linux.sh -b
+	sudo bash ccdc_linux.sh -b 
 	GREEN "Created backup of all binaries..."
 
 	# Capture initial checksum of critical files
-	sudo bash ccdc_linux.sh -v
+	sudo bash ccdc_linux.sh -v 
 	GREEN "Initial critical file checksums captured..."
 
 	# Leave the user looking at /etc/passwd
+	ip addr
 	sudo cat /etc/passwd
 	GREEN "Auto-Secure actions complete..."
 	GREEN "A good next step would be to identify/remove suspicous or unused users..."
