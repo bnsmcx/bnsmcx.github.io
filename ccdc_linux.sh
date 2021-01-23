@@ -114,16 +114,16 @@ if [ "$auto_secure" = true ]; then
 	BLUE "Performing the scripted default actions to secure the system..."
 	
 	# Bring down all network interfaces
-	sudo bash ccdc_linux.sh -i down &
+	sudo bash ccdc_linux.sh -i down
 	GREEN "Network interfaces are now down..."
 
 	# Change all user passwords
-	sudo bash ccdc_linux.sh -p "yodagreenears" &
+	sudo bash ccdc_linux.sh -p "yodagreenears"
 	GREEN "All user passwords changed..."
 
 	# Create backup accounts
-	sudo bash ccdc_linux.sh -u "han spacesmuggler69" &
-	sudo bash ccdc_linus.sh -u "kylo feistyfella1337" &
+	sudo bash ccdc_linux.sh -u "han spacesmuggler69"
+	sudo bash ccdc_linux.sh -u "kylo feistyfella1337"
 	GREEN "Created backup users..."
 
 	# Backup Binaries
